@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+</body>
+
+</html>
+
+<script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script id="vs" type="x-shader/x-vertex">
+    varying vec3 vNormal;
+    varying vec3 vEye;
+    void main() {
+        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+        vEye = normalize(worldPos.xyz - cameraPosition);
+        vNormal = normalize(modelMatrix * vec4(normal, 0.0)).xyz;
+    }
+</script>
+<script id="fs" type="x-shader/x-fragment">
+    varying vec3 vNormal;
+    varying vec3 vEye;
+    uniform sampler2D u_image;
+    uniform vec2 resolution;
+    uniform bool enableFresnel;
+    const vec3 grayScale = vec3(0.2125, 0.7154, 0.0721);
+
+    float fresnel(vec3 ev, vec3 wv) {
+        return pow(1.0 - abs(dot(ev, wv)), 3.0);
+    }    
+
+    vec3 saturate(vec3 rgb) {
+        return mix(vec3(dot(grayScale, rgb)), rgb, 1.06);
+    }
+
+    void main() {        
+        vec3 refractedDataRGB;
+        for(int i = 0; i < 4; i++) {
+            float shift = (float(i) / 4.0) * 0.04;
+
+            vec3 refractedR = refract(vEye, vNormal, 1.0 / 1.15);
+            vec3 refractedG = refract(vEye, vNormal, 1.0 / 1.18);
+            vec3 refractedB = refract(vEye, vNormal, 1.0 / 1.22);    
+
+            refractedDataRGB.r += texture2D(u_image, gl_FragCoord.xy / resolution + refractedR.xy * (0.25 + shift * 1.0)).r;
+            refractedDataRGB.g += texture2D(u_image, gl_FragCoord.xy / resolution + refractedG.xy * (0.25 + shift * 2.0)).g;
+            refractedDataRGB.b += texture2D(u_image, gl_FragCoord.xy / resolution + refractedB.xy * (0.25 + shift * 3.0)).b;
+        }
+
+        refractedDataRGB /= 4.0;
+        
+        vec3 reflected = reflect(vEye, vNormal);
+        vec4 reflectedData = texture2D(u_image, gl_FragCoord.xy / resolution + reflected.xy * 0.25);
+
+        //vec3 refracted = refract(vEye, vNormal, 1.0 / 1.5);
+        //vec4 refractedData = texture2D(u_image, gl_FragCoord.xy / resolution + refracted.xy * 0.5);
+        float f = fresnel(vEye, vNormal);
+        vec3 refractColor = vec3(1);
+        vec3 result = mix(refractedDataRGB, refractColor, f);
+        gl_FragColor = vec4(saturate(result), 1.0);
+    }
+</script>
+<script src="script.js"></script>
