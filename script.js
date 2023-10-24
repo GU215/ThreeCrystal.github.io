@@ -6,17 +6,17 @@ renderer.setSize(800, 450);
 renderer.setPixelRatio(1);
 const camera = new THREE.PerspectiveCamera(45, c.width / c.height);
 camera.position.set(0, 0, 5);
-//const controls = new THREE.OrbitControls(camera, c);
-//controls.enableDamping = true;
-//controls.dampingFactor = 0.1;
-//controls.enablePan = false;
+// const controls = new THREE.OrbitControls(camera, c);
+// controls.enableDamping = true;
+// controls.dampingFactor = 0.1;
+// controls.enablePan = false;
 const sceneRT = new THREE.WebGLRenderTarget(c.width, c.height);
 const backFaceRT = new THREE.WebGLRenderTarget(c.width, c.height);
 const scene = new THREE.Scene();
 // const backFaceScene = new THREE.Scene();
 
 const texLoader = new THREE.TextureLoader();
-const texture = texLoader.load("images/mv_bg.png");
+const texture = texLoader.load(backGroundTextureData);
 texture.wrapS = THREE.ClampToBorderWrapping;
 texture.wrapT = THREE.ClampToBorderWrapping;
 
@@ -25,107 +25,102 @@ const uniforms = {
     resolution: { type: "v2", value: new THREE.Vector2(c.width, c.height) }
 };
 
-const modelLoader = new THREE.GLTFLoader();
-modelLoader.load("models/drop_lowPoly_ICO.glb", function (gltf) {
-    gltf.scene.traverse(function (child) {
-        if (child.isMesh) {
-            setmeshs(child);
-        }
-    });
+const pg = new THREE.PlaneGeometry(16, 16);
+const pm = new THREE.MeshBasicMaterial({ map: texture });
+const plane = new THREE.Mesh(pg, pm);
+plane.position.z = -15;
+scene.add(plane)
+
+const geometry = new THREE.BufferGeometry();
+geometry.setIndex(modelIndex);
+geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(modelPosition), 3));
+geometry.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(modelNormal), 3));
+// const geometry = new THREE.SphereGeometry(1, 64, 32);
+const material = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    side: THREE.FrontSide,
+    vertexShader: vsSource,
+    fragmentShader: fsSource
 });
+// material.flatShading = true;
+const mesh = new THREE.Mesh(geometry, material);
+mesh.rotation.z = -20 * Math.PI / 180;
+scene.add(mesh);
 
-function setmeshs(child) {
+setControls(mesh);
 
-    // for (let i = 0; i < 5; i++) {
-    //     for (let j = 0; j < 5; j++) {
-    //         const geometry = new THREE.SphereGeometry(0.25, 16, 8);
-    //         const material = new THREE.MeshNormalMaterial();
-    //         const mesh = new THREE.Mesh(geometry, material);
-    //         mesh.position.set(i * 2 - 4.5, j * 2 - 4.5, -10);
-    //         scene.add(mesh);
-    //     }
-    // }
-    const pg = new THREE.PlaneGeometry(16, 16);
-    const pm = new THREE.MeshBasicMaterial({ map: texture });
-    const plane = new THREE.Mesh(pg, pm);
-    plane.position.z = -15;
-    scene.add(plane)
+let t = 0;
+(function render() {
+    mesh.visible = false;
+    renderer.setRenderTarget(sceneRT);
+    renderer.render(scene, camera);
 
+    mesh.material.uniforms.u_image.value = sceneRT.texture;
+    mesh.material.side = THREE.BackSide;
+    mesh.visible = true;
+    renderer.setRenderTarget(backFaceRT);
+    renderer.render(scene, camera);
 
-    const geometry = child.geometry;
-    console.log(geometry.attributes.position);
-    // const geometry = new THREE.SphereGeometry(1, 64, 32);
-    const material = new THREE.ShaderMaterial({
-        uniforms: uniforms,
-        side: THREE.FrontSide,
-        vertexShader: vsSource,
-        fragmentShader: fsSource
-    });
-    // material.flatShading = true;
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.z = -20 * Math.PI / 180;
-    scene.add(mesh);
-    setControls(mesh);
+    mesh.material.uniforms.u_image.value = backFaceRT.texture;
+    mesh.material.side = THREE.FrontSide;
+    renderer.setRenderTarget(null);
+    renderer.render(scene, camera);
 
-    let t = 0;
-    (function render() {
-        mesh.visible = false;
-        renderer.setRenderTarget(sceneRT);
-        renderer.render(scene, camera);
+    mesh.rotation.y += 0.5 * Math.PI / 180;
 
-        mesh.material.uniforms.u_image.value = sceneRT.texture;
-        mesh.material.side = THREE.BackSide;
-        mesh.visible = true;
-        renderer.setRenderTarget(backFaceRT);
-        renderer.render(scene, camera);
-
-        mesh.material.uniforms.u_image.value = backFaceRT.texture;
-        mesh.material.side = THREE.FrontSide;
-        renderer.setRenderTarget(null);
-        renderer.render(scene, camera);
-
-        // mesh.rotation.x += 1 * Math.PI / 180;
-        // mesh.rotation.y += 1 * Math.PI / 180;
-        // mesh.rotation.z += 1 * Math.PI / 180;
-
-        //controls.update();
-        t++;
-        requestAnimationFrame(render);
-    })()
-}
+    // controls.update();
+    t++;
+    requestAnimationFrame(render);
+})()
 
 renderer.setClearColor(0x000000, 1.0);
 // scene.background = texture;
 
-function setControls(obj) {
+function setControls(mesh) {
     let mouseDown = false;
     let mouseX = 0.5;
     let mouseY = 0.5;
-    let event = [null, 0];
     // let scale = 1.0;
 
     function onMouseDown(e, isMouse) {
-        e.preventDefault();
+        let m;
+        if (isMouse) {
+            m = e;
+            m.preventDefault();
+        } else {
+            m = e.changedTouches[0];
+        }
         mouseDown = true;
-        mouseX = e.clientX;
-        mouseY = e.clientY;
+        mouseX = m.clientX;
+        mouseY = m.clientY + c.height;
     }
 
     function onMouseMove(e, isMouse) {
-        if (!mouseDown) { return; }
-        e.preventDefault();
-        let ForceX = e.clientX - mouseX;
-        let ForceY = e.clientY - mouseY;
-        mouseX = e.clientX;
-        mouseY = e.clientY;
-        obj.rotation.x += ForceY / 100;
-        obj.rotation.y += ForceX / 100;
+        let m;
+        if (isMouse) {
+            m = e;
+            if (!mouseDown) { return; }
+            m.preventDefault();
+        } else {
+            m = e.changedTouches[0];
+        }
+        let ForceX = m.clientX - mouseX;
+        let ForceY = (m.clientY - mouseY) + c.height;
+        mouseX = m.clientX;
+        mouseY = m.clientY + c.height;
+        mesh.rotation.x += ForceY / 100;
+        mesh.rotation.y += ForceX / 100;
     }
 
     function onMouseUp(e) {
         e.preventDefault();
         mouseDown = false;
     }
+
+    // function onWheel(e) {
+    //     e.preventDefault();
+    //     scale += e.ForceY / -1000;
+    // }
 
     c.addEventListener("mousemove", function (e) {
         onMouseMove(e, true);
@@ -145,4 +140,7 @@ function setControls(obj) {
     c.addEventListener("touchup", function (e) {
         onMouseUp(e);
     });
+    // c.addEventListener("wheel", function(e) {
+    //     onWheel(e);
+    // }, {passive: true});
 }
