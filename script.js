@@ -2,18 +2,13 @@ const c = document.getElementById("canvas");
 const vsSource = document.getElementById("vs").textContent;
 const fsSource = document.getElementById("fs").textContent;
 const renderer = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: true });
-renderer.setSize(800, 450);
-renderer.setPixelRatio(1);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 const camera = new THREE.PerspectiveCamera(45, c.width / c.height);
 camera.position.set(0, 0, 5);
-// const controls = new THREE.OrbitControls(camera, c);
-// controls.enableDamping = true;
-// controls.dampingFactor = 0.1;
-// controls.enablePan = false;
 const sceneRT = new THREE.WebGLRenderTarget(c.width, c.height);
 const backFaceRT = new THREE.WebGLRenderTarget(c.width, c.height);
 const scene = new THREE.Scene();
-// const backFaceScene = new THREE.Scene();
 
 const texLoader = new THREE.TextureLoader();
 const texture = texLoader.load(backGroundTextureData);
@@ -45,6 +40,7 @@ const material = new THREE.ShaderMaterial({
 // material.flatShading = true;
 const mesh = new THREE.Mesh(geometry, material);
 mesh.rotation.z = -20 * Math.PI / 180;
+mesh.position.y = -0.25;
 scene.add(mesh);
 
 setControls(mesh);
