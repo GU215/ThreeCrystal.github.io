@@ -12,19 +12,14 @@ const scene = new THREE.Scene();
 
 const texLoader = new THREE.TextureLoader();
 const texture = texLoader.load(backGroundTextureData);
-texture.wrapS = THREE.ClampToBorderWrapping;
-texture.wrapT = THREE.ClampToBorderWrapping;
+texture.wrapS = THREE.RepeatWrapping;
+texture.wrapT = THREE.RepeatWrapping;
+texture.repeat.set(c.width / c.height, 1);
 
 const uniforms = {
     u_image: { type: "t", value: texture },
     resolution: { type: "v2", value: new THREE.Vector2(c.width, c.height) }
 };
-
-const pg = new THREE.PlaneGeometry(16, 16);
-const pm = new THREE.MeshBasicMaterial({ map: texture });
-const plane = new THREE.Mesh(pg, pm);
-plane.position.z = -15;
-scene.add(plane)
 
 const geometry = new THREE.BufferGeometry();
 geometry.setIndex(modelIndex);
@@ -70,7 +65,7 @@ let t = 0;
 })()
 
 renderer.setClearColor(0x000000, 1.0);
-// scene.background = texture;
+scene.background = texture;
 
 function setControls(mesh) {
     let mouseDown = false;
